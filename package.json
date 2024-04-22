@@ -1,0 +1,17 @@
+{
+  "name": "raytracer",
+  "version": "1.0.0",
+  "description": "CS 418 @ UIUC",
+  "main": "index.js",
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "dev": "tsc --watch"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
