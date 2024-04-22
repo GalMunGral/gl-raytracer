@@ -129,8 +129,6 @@ uniform sampler2D textures[MAX_TEXTURE_N];
 vec4 sample_texture(int index, vec2 st)
 {
     switch (index) {
-    case 0:
-        return texture(textures[0], st);
     case 1:
         return texture(textures[1], st);
     case 2:
