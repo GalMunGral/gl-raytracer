@@ -4,7 +4,7 @@
   "description": "CS 418 @ UIUC",
   "main": "index.js",
   "scripts": {
-    "build": "tsc && cp -r src/*.{html,glsl} assets/ build"
+    "build": "tsc && cp -r src/*.html src/*.glsl assets/ build"
   },
   "author": "",
   "license": "ISC",
