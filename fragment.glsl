@@ -348,7 +348,12 @@ vec3 intensity(Light l, vec3 o)
 
 const Object NULL = Object(
     4,
-    Triangle(vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0), vec2(0.0), vec2(0.0), vec2(0.0)),
+    Triangle(
+        vec3(0.0), vec3(0.0), vec3(0.0), 
+        vec3(0.0), vec3(0.0), vec3(0.0), 
+        vec3(0.0), vec3(0.0), 
+        vec2(0.0), vec2(0.0), vec2(0.0)
+    ),
     Sphere(vec3(0.0), 0.0),
     Plane(0.0, 0.0, 0.0, 0.0),
     Material(vec3(0.0), vec3(0.0), 0.0, -1, vec3(0.0))
