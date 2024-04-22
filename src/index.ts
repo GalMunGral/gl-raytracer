@@ -188,7 +188,7 @@ async function createProgramFromScripts(gl: WebGL2RenderingContext) {
 async function loadImage(filename: string) {
   return new Promise<HTMLImageElement>((resolve) => {
     const img = new Image();
-    img.src = `./${filename}`;
+    img.src = `./assets/${filename}`;
     img.onload = () => resolve(img);
   });
 }
@@ -196,7 +196,7 @@ async function loadImage(filename: string) {
 async function parseScene() {
   const filename =
     new URLSearchParams(location.search).get("file") || "example";
-  const input = await (await fetch(`./${filename}.txt`)).text();
+  const input = await (await fetch(`./assets/${filename}.txt`)).text();
 
   const sc: Scene = {
     lights: [],
