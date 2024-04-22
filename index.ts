@@ -179,7 +179,7 @@ async function createProgramFromScripts(gl: WebGL2RenderingContext) {
   );
   var fragmentShader = await createShaderFromScript(
     gl,
-    "./fragment.glsl",
+    "./raytracing.glsl",
     gl.FRAGMENT_SHADER
   );
   return createProgram(gl, vertexShader, fragmentShader);
