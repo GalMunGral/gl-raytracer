@@ -583,47 +583,62 @@ async function main() {
     ];
   }
 
-  function updateCamera() {
+  let prev = -1;
+  function updateCamera(t: DOMHighResTimeStamp) {
+    if (prev < 0) prev = t;
+    const d_x = 0.001 * (t - prev);
+    const d_theta = 0.001 * (t - prev);
+    prev = t;
+
     if (keydown["w"]) {
-      scene.eye = add(scene.eye, mul(scene.forward, 0.05));
+      scene.eye = add(scene.eye, mul(scene.forward, d_x));
     }
     if (keydown["s"]) {
-      scene.eye = add(scene.eye, mul(scene.forward, -0.05));
+      scene.eye = add(scene.eye, mul(scene.forward, -d_x));
     }
     if (keydown["a"]) {
-      scene.eye = add(scene.eye, mul(scene.right, -0.05));
+      scene.eye = add(scene.eye, mul(scene.right, -d_x));
     }
     if (keydown["d"]) {
-      scene.eye = add(scene.eye, mul(scene.right, 0.05));
+      scene.eye = add(scene.eye, mul(scene.right, d_x));
     }
     if (keydown["r"]) {
-      scene.eye = add(scene.eye, mul(scene.up, 0.05));
+      scene.eye = add(scene.eye, mul(scene.up, d_x));
     }
     if (keydown["f"]) {
-      scene.eye = add(scene.eye, mul(scene.up, -0.05));
+      scene.eye = add(scene.eye, mul(scene.up, -d_x));
     }
     if (keydown["ArrowLeft"]) {
-      [scene.right, scene.forward] = rotate(scene.right, scene.forward, 0.05);
+      [scene.right, scene.forward] = rotate(
+        scene.right,
+        scene.forward,
+        d_theta
+      );
     }
     if (keydown["ArrowRight"]) {
-      [scene.right, scene.forward] = rotate(scene.right, scene.forward, -0.05);
+      [scene.right, scene.forward] = rotate(
+        scene.right,
+        scene.forward,
+        -d_theta
+      );
     }
     if (keydown["ArrowUp"]) {
-      [scene.forward, scene.up] = rotate(scene.forward, scene.up, 0.05);
+      [scene.forward, scene.up] = rotate(scene.forward, scene.up, d_theta);
     }
     if (keydown["ArrowDown"]) {
-      [scene.forward, scene.up] = rotate(scene.forward, scene.up, -0.05);
+      [scene.forward, scene.up] = rotate(scene.forward, scene.up, -d_theta);
     }
     if (keydown["q"]) {
-      [scene.right, scene.up] = rotate(scene.right, scene.up, 0.05);
+      [scene.right, scene.up] = rotate(scene.right, scene.up, d_theta);
     }
     if (keydown["e"]) {
-      [scene.right, scene.up] = rotate(scene.right, scene.up, -0.05);
+      [scene.right, scene.up] = rotate(scene.right, scene.up, -d_theta);
     }
   }
 
   function render(time: DOMHighResTimeStamp) {
-    updateCamera();
+    updateCamera(time);
+
     if (Object.values(keydown).some((v) => v)) {
       gl.uniform3fv(loc(`scene.eye`), new Float32Array(scene.eye));
       gl.uniform3fv(loc(`scene.forward`), new Float32Array(scene.forward));
