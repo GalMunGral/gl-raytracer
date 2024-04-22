@@ -3,11 +3,8 @@
   "version": "1.0.0",
   "description": "CS 418 @ UIUC",
   "main": "index.js",
-  "directories": {
-    "example": "examples"
-  },
   "scripts": {
-    "dev": "tsc --watch"
+    "build": "tsc && cp -r src/*.{html,glsl} assets/ build"
   },
   "author": "",
   "license": "ISC",
