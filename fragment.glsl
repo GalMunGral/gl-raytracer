@@ -559,8 +559,7 @@ void main() {
 
     int next = int((gl_FragCoord.z * viewport.y + gl_FragCoord.y) * viewport.x + gl_FragCoord.x);
 
-    bool hit_any = false;
-    vec3 c = vec3(0.0);
+    vec4 c = vec4(0.0);
 
     for (int k = 0; k < scene.aa; ++k)
     {
@@ -654,16 +653,13 @@ void main() {
 
         if (stack[0].ret.obj.type != NONE)
         {
-          hit_any = true;
-          c += stack[0].ret.intensity / float(scene.aa);
+          c.rgb += stack[0].ret.intensity / float(scene.aa);
+          c.a = 1.0;
         }
     }
 
-    if (hit_any)
-    {
-      fragColor.r = gamma(c.r, scene.expose);
-      fragColor.g = gamma(c.g, scene.expose);
-      fragColor.b = gamma(c.b, scene.expose);
-      fragColor.a = 1.0;
-    }
+    fragColor.r = gamma(c.r, scene.expose);
+    fragColor.g = gamma(c.g, scene.expose);
+    fragColor.b = gamma(c.b, scene.expose);
+    fragColor.a = c.a;
 }

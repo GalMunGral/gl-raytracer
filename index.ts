@@ -390,7 +390,7 @@ async function parseScene() {
 
 async function main() {
   const canvas = document.querySelector("canvas")!;
-  const r = 1;
+  const r = 2;
   canvas.width = window.innerWidth / r;
   canvas.height = window.innerHeight / r;
   canvas.style.height = window.innerHeight + "px";
