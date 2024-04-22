@@ -603,14 +603,14 @@ void main() {
             ++sp; \
             stack[sp].cont = 0;
 
-        #define RETURN \
+        #define RETURN_FROM_CALL \
             stack[sp - 1].next_ret = stack[sp].ret; \
             --sp;
 
         while (true) {
             if (stack[sp].cont == -1) {
                 if (sp == 0) break;
-                RETURN
+                RETURN_FROM_CALL
                 continue;
             }
             switch (stack[sp].cont) {
