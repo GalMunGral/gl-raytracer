@@ -534,7 +534,7 @@ void ray_trace_5(inout StackFrame sf, inout int next) {
 }
 
 
-void ray_trace_6(inout StackFrame sf, int sp, inout int next) {
+void ray_trace_6(inout StackFrame sf, inout int next) {
     Material mtl = sf.ret.obj.material;
     vec3 s = mtl.shininess;
     vec3 t = mtl.transparency;
@@ -634,7 +634,7 @@ void main() {
                     ray_trace_5(stack[sp], next);
                     break;
                 case 6:
-                    ray_trace_6(stack[sp], sp, next);
+                    ray_trace_6(stack[sp], next);
                     break;
                 case 11:
                     stack[sp].cont = 1;
