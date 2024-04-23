@@ -4,6 +4,8 @@ precision mediump float;
 #define FLT_MAX 3.402823466e+38
 #define M_PI 3.1415926535897932384626433832795
 
+#define STACK_MAX_N 4
+
 #define MAX_OBJ_N 20
 #define MAX_LIGHT_N 5
 #define MAX_TEXTURE_N 5
@@ -15,36 +17,6 @@ precision mediump float;
 #define TRIANGLE 1
 #define SPHERE 2
 #define PLANE 3
-
-float rand(inout int next) {
-  next = next * 1103515245 + 12345; // TODO: overflow?
-  return float((next / 65536) % 32768) / 32767.0;
-}
-
-vec2 sample_unit_disk(inout int next) {
-  vec2 q;
-  do {
-    q = vec2(2.0 * rand(next) - 1.0, 2.0 * rand(next) - 1.0);
-  } while (length(q) >= 1.0);
-  return q;
-}
-
-vec3 sample_unit_sphere(inout int next) {
-  vec3 q;
-  do {
-    q = vec3(2.0 * rand(next) - 1.0, 2.0 * rand(next) - 1.0,
-             2.0 * rand(next) - 1.0);
-  } while (length(q) >= 1.0);
-  return q;
-}
-
-float gamma(float l, float exposure) {
-  if (exposure == 0.0)
-    return l;
-  l = clamp(l, 0.0f, 1.0f);
-  l = 1.0 - exp(-l * exposure);
-  return l <= 0.0031308 ? 12.92 * l : 1.055 * pow(l, 1.0 / 2.4) - 0.055;
-}
 
 struct DirectionalLight {
   vec3 dir;
@@ -94,17 +66,18 @@ struct Object {
 struct Scene {
   Light lights[MAX_OBJ_N];
   Object objects[MAX_OBJ_N];
-
   int aa, d, bounces;
   float expose, focus, lens;
   vec3 eye, forward, right, up;
   bool fisheye, dof;
 };
 
+uniform Scene scene;
+
 uniform vec2 viewport;
 uniform int num_objects;
 uniform int num_lights;
-uniform Scene scene;
+
 uniform sampler2D textures[MAX_TEXTURE_N];
 
 vec4 sample_texture(int index, vec2 st) {
@@ -236,7 +209,7 @@ float light_dist(Light l, vec3 o) {
   }
 }
 
-vec3 intensity(Light l, vec3 o) {
+vec3 light_intensity(Light l, vec3 o) {
   switch (l.type) {
   case DIRECTIONAL:
     return l.directional.color;
@@ -246,26 +219,6 @@ vec3 intensity(Light l, vec3 o) {
   }
   }
 }
-
-const Object NULL = Object(4,
-                           Triangle(vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0),
-                                    vec3(0.0), vec3(0.0), vec3(0.0), vec3(0.0),
-                                    vec2(0.0), vec2(0.0), vec2(0.0)),
-                           Sphere(vec3(0.0), 0.0), Plane(0.0, 0.0, 0.0, 0.0),
-                           Material(vec3(0.0), vec3(0.0), 0.0, -1, vec3(0.0)));
-
-struct RayTraceArgs {
-  vec3 o, dir;
-  int d, bounces;
-};
-
-struct StackFrame {
-  RayTraceArgs args;
-  int cont;
-  int obj_id;
-  vec3 p, n;
-  vec3 diffuse, refraction, reflection, intensity;
-};
 
 struct HitResult {
   int obj_id;
@@ -295,13 +248,30 @@ vec3 illuminate(Light light, Object obj, vec3 p, vec3 n) {
   }
 
   float lambert = max(0.0, dot(l_dir, n));
-  vec3 color = lambert * intensity(light, p) * color_at(obj, p);
+  vec3 color = lambert * light_intensity(light, p) * color_at(obj, p);
   return color;
 }
 
-out vec4 fragColor;
+struct RaytraceArgs {
+  vec3 o, dir;
+  int d, bounces;
+};
 
-#define STACK_MAX_N 4
+struct StackFrame {
+  RaytraceArgs args;
+  int cont;
+  int obj_id;
+  vec3 p, n;
+  vec3 diffuse, refraction, reflection;
+  vec3 ret; // final intensity
+};
+
+float rand(inout int next);
+vec2 sample_unit_disk(inout int next);
+vec3 sample_unit_sphere(inout int next);
+float gamma(float l, float exposure);
+
+out vec4 fragColor;
 
 void main() {
   StackFrame stack[STACK_MAX_N];
@@ -342,7 +312,7 @@ void main() {
     }
 
     stack[0].cont = 0;
-    stack[0].args = RayTraceArgs(origin, dir, scene.d, scene.bounces);
+    stack[0].args = RaytraceArgs(origin, dir, scene.d, scene.bounces);
 
     while (sp > -1) {
       switch (stack[sp].cont) {
@@ -358,7 +328,7 @@ void main() {
         stack[sp].obj_id = res.obj_id;
 
         if (res.obj_id == -1) {
-          stack[sp].intensity = vec3(0.0);
+          stack[sp].ret = vec3(0.0);
           --sp;
           break;
         }
@@ -380,7 +350,7 @@ void main() {
           /* shoot secondary rays */
           vec3 random_dir = normalize(stack[sp].n + sample_unit_sphere(next));
           stack[sp].cont = 1;
-          stack[sp + 1].args = RayTraceArgs(stack[sp].p, random_dir,
+          stack[sp + 1].args = RaytraceArgs(stack[sp].p, random_dir,
                                             max(stack[sp].args.d - 1, 0),
                                             max(stack[sp].args.bounces - 0, 0));
           ++sp;
@@ -394,7 +364,7 @@ void main() {
       case 1: {
         if (stack[sp + 1].obj_id != -1) {
           Light l = Light(POINT, DirectionalLight(vec3(0.0), vec3(0.0)),
-                          PointLight(stack[sp + 1].p, stack[sp + 1].intensity));
+                          PointLight(stack[sp + 1].p, stack[sp + 1].ret));
           stack[sp].diffuse += illuminate(l, scene.objects[stack[sp].obj_id],
                                           stack[sp].p, stack[sp].n);
         }
@@ -408,7 +378,7 @@ void main() {
           vec3 r = normalize(dir - 2.0 * dot(dir, n) * n);
           stack[sp].cont = 3;
           stack[sp + 1].args =
-              RayTraceArgs(stack[sp].p, r, max(stack[sp].args.d - 1, 0),
+              RaytraceArgs(stack[sp].p, r, max(stack[sp].args.d - 1, 0),
                            max(stack[sp].args.bounces - 1, 0));
           ++sp;
           stack[sp].cont = 0;
@@ -418,7 +388,7 @@ void main() {
         break;
       }
       case 3: {
-        stack[sp].reflection = stack[sp + 1].intensity;
+        stack[sp].reflection = stack[sp + 1].ret;
         stack[sp].cont = 4;
         break;
       }
@@ -439,7 +409,7 @@ void main() {
           } else {
             vec3 r = normalize(eta * dir - (eta * dot(n, dir) + sqrt(k)) * n);
             stack[sp].cont = 5;
-            stack[sp + 1].args = RayTraceArgs(
+            stack[sp + 1].args = RaytraceArgs(
                 stack[sp].p + 0.01 * r, r, max(stack[sp].args.d - 1, 0),
                 max(stack[sp].args.bounces - 1, 0));
             ++sp;
@@ -451,7 +421,7 @@ void main() {
         break;
       }
       case 5: {
-        stack[sp].refraction = stack[sp + 1].intensity;
+        stack[sp].refraction = stack[sp + 1].ret;
         stack[sp].cont = 6;
         break;
       }
@@ -459,11 +429,10 @@ void main() {
         Material mtl = scene.objects[stack[sp].obj_id].mtl;
         vec3 s = mtl.shininess;
         vec3 t = mtl.transparency;
-        stack[sp].intensity =
-            (s * stack[sp].reflection +
-             (vec3(1.0, 1.0, 1.0) - s) * t * stack[sp].refraction +
-             (vec3(1.0, 1.0, 1.0) - s) * (vec3(1.0, 1.0, 1.0) - t) *
-                 stack[sp].diffuse);
+        stack[sp].ret = (s * stack[sp].reflection +
+                         (vec3(1.0, 1.0, 1.0) - s) * t * stack[sp].refraction +
+                         (vec3(1.0, 1.0, 1.0) - s) * (vec3(1.0, 1.0, 1.0) - t) *
+                             stack[sp].diffuse);
         --sp;
         break;
       }
@@ -471,7 +440,7 @@ void main() {
     }
 
     if (stack[0].obj_id != -1) {
-      c.rgb += stack[0].intensity / float(scene.aa);
+      c.rgb += stack[0].ret / float(scene.aa);
       c.a = 1.0;
     }
   }
@@ -480,4 +449,34 @@ void main() {
   fragColor.g = gamma(c.g, scene.expose);
   fragColor.b = gamma(c.b, scene.expose);
   fragColor.a = c.a;
+}
+
+float rand(inout int next) {
+  next = next * 1103515245 + 12345; // TODO: overflow?
+  return float((next / 65536) % 32768) / 32767.0;
+}
+
+vec2 sample_unit_disk(inout int next) {
+  vec2 q;
+  do {
+    q = vec2(2.0 * rand(next) - 1.0, 2.0 * rand(next) - 1.0);
+  } while (length(q) >= 1.0);
+  return q;
+}
+
+vec3 sample_unit_sphere(inout int next) {
+  vec3 q;
+  do {
+    q = vec3(2.0 * rand(next) - 1.0, 2.0 * rand(next) - 1.0,
+             2.0 * rand(next) - 1.0);
+  } while (length(q) >= 1.0);
+  return q;
+}
+
+float gamma(float l, float exposure) {
+  if (exposure == 0.0)
+    return l;
+  l = clamp(l, 0.0f, 1.0f);
+  l = 1.0 - exp(-l * exposure);
+  return l <= 0.0031308 ? 12.92 * l : 1.055 * pow(l, 1.0 / 2.4) - 0.055;
 }
