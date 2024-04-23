@@ -371,8 +371,9 @@ void main() {
         }
 
         for (int i = 0; i < num_lights; ++i) {
-          stack[sp].diffuse += illuminate(scene.lights[i], scene.objects[stack[sp].obj_id],
-                                          stack[sp].p, stack[sp].n);
+          stack[sp].diffuse +=
+              illuminate(scene.lights[i], scene.objects[stack[sp].obj_id],
+                         stack[sp].p, stack[sp].n);
         }
 
         if (stack[sp].args.d > 0) {
@@ -394,8 +395,8 @@ void main() {
         if (stack[sp + 1].obj_id != -1) {
           Light l = Light(POINT, DirectionalLight(vec3(0.0), vec3(0.0)),
                           PointLight(stack[sp + 1].p, stack[sp + 1].intensity));
-          stack[sp].diffuse +=
-              illuminate(l, scene.objects[stack[sp].obj_id], stack[sp].p, stack[sp].n);
+          stack[sp].diffuse += illuminate(l, scene.objects[stack[sp].obj_id],
+                                          stack[sp].p, stack[sp].n);
         }
         stack[sp].cont = 2;
         break;
