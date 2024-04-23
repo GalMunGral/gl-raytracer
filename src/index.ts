@@ -3,13 +3,12 @@ type float = number;
 type vec2 = [number, number];
 type vec3 = [number, number, number];
 
-const DIRECTIONAL = 1;
-const POINT = 2;
+const DIRECTIONAL = 0;
+const POINT = 1;
 
-const NONE = 0;
-const TRIANGLE = 1;
-const SPHERE = 2;
-const PLANE = 3;
+const TRIANGLE = 0;
+const SPHERE = 1;
+const PLANE = 2;
 
 function cross(a: vec3, b: vec3): vec3 {
   return [
@@ -35,6 +34,7 @@ function normalize(v: vec3): vec3 {
 function add(a: vec3, b: vec3): vec3 {
   return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 }
+
 function sub(a: vec3, b: vec3): vec3 {
   return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 }
@@ -203,7 +203,7 @@ async function parseScene() {
     objects: [],
     aa: 1,
     d: 0,
-    bounces: 2,
+    bounces: 3,
     expose: 0,
     focus: 0,
     lens: 0,

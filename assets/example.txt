@@ -36,5 +36,5 @@ bulb 0 1 2
 color 1.000 0.592 0.376
 bulb 0 2 1
 
-eye 0 1 5
-forward 0 0 -5
+eye 0 1 6
+forward 0 0 -6

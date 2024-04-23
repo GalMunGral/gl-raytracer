@@ -10,13 +10,12 @@ precision mediump float;
 #define MAX_LIGHT_N 5
 #define MAX_TEXTURE_N 5
 
-#define DIRECTIONAL 1
-#define POINT 2
+#define DIRECTIONAL 0
+#define POINT 1
 
-#define NONE 0
-#define TRIANGLE 1
-#define SPHERE 2
-#define PLANE 3
+#define TRIANGLE 0
+#define SPHERE 1
+#define PLANE 2
 
 struct DirectionalLight {
   vec3 dir;
