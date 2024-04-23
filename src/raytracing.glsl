@@ -262,31 +262,35 @@ struct RayTraceArgs {
 struct StackFrame {
   RayTraceArgs args;
   int cont;
-  Object obj;
+  int obj_id;
   vec3 p, n;
   vec3 diffuse, refraction, reflection, intensity;
 };
 
-Object advance_ray(vec3 o, vec3 dir) {
-  Object obj_hit;
+struct HitResult {
+  int obj_id;
+  float t_hit;
+};
+
+HitResult advance_ray(vec3 o, vec3 dir) {
+  int obj_id = -1;
   float t_hit = FLT_MAX;
   for (int i = 0; i < num_objects; ++i) {
-    Object obj = scene.objects[i];
-    float t = intersect(obj, o, dir);
+    float t = intersect(scene.objects[i], o, dir);
     if (t > 0.0 && t < t_hit) {
-      obj_hit = obj;
+      obj_id = i;
       t_hit = t;
     }
   }
-  return obj_hit;
+  return HitResult(obj_id, t_hit);
 }
 
 vec3 illuminate(Light light, Object obj, vec3 p, vec3 n) {
   vec3 l_dir = light_dir(light, p);
   float l_dist = light_dist(light, p);
 
-  Object obj_hit = advance_ray(p, l_dir);
-  if (obj_hit.type != NONE && intersect(obj_hit, p, l_dir) < l_dist) {
+  HitResult res = advance_ray(p, l_dir);
+  if (res.obj_id != -1 && res.t_hit < l_dist) {
     return vec3(0.0); // in shadoAw
   }
 
@@ -350,18 +354,16 @@ void main() {
         vec3 o = stack[sp].args.o;
         vec3 dir = stack[sp].args.dir;
 
-        Object obj_hit = advance_ray(o, dir);
-        stack[sp].obj = obj_hit;
+        HitResult res = advance_ray(o, dir);
+        stack[sp].obj_id = res.obj_id;
 
-        if (obj_hit.type == NONE) {
+        if (res.obj_id == -1) {
           stack[sp].intensity = vec3(0.0);
           --sp;
           break;
         }
-
-        float t_hit = intersect(obj_hit, o, dir);
-        stack[sp].p = o + t_hit * dir;
-        stack[sp].n = norm_at(obj_hit, stack[sp].p);
+        stack[sp].p = o + res.t_hit * dir;
+        stack[sp].n = norm_at(scene.objects[res.obj_id], stack[sp].p);
 
         /* use the other side */
         if (dot(stack[sp].n, dir) > 0.0) {
@@ -369,7 +371,7 @@ void main() {
         }
 
         for (int i = 0; i < num_lights; ++i) {
-          stack[sp].diffuse += illuminate(scene.lights[i], stack[sp].obj,
+          stack[sp].diffuse += illuminate(scene.lights[i], scene.objects[stack[sp].obj_id],
                                           stack[sp].p, stack[sp].n);
         }
 
@@ -389,11 +391,11 @@ void main() {
         break;
       }
       case 1: {
-        if (stack[sp + 1].obj.type != NONE) {
+        if (stack[sp + 1].obj_id != -1) {
           Light l = Light(POINT, DirectionalLight(vec3(0.0), vec3(0.0)),
                           PointLight(stack[sp + 1].p, stack[sp + 1].intensity));
           stack[sp].diffuse +=
-              illuminate(l, stack[sp].obj, stack[sp].p, stack[sp].n);
+              illuminate(l, scene.objects[stack[sp].obj_id], stack[sp].p, stack[sp].n);
         }
         stack[sp].cont = 2;
         break;
@@ -423,10 +425,11 @@ void main() {
         vec3 dir = stack[sp].args.dir, n = stack[sp].n;
 
         if (stack[sp].args.bounces > 0) {
-          Material mtl = stack[sp].obj.mtl;
+          Object obj = scene.objects[stack[sp].obj_id];
+          Material mtl = obj.mtl;
 
           /* refraction */
-          bool entering = dot(dir, norm_at(stack[sp].obj, stack[sp].p)) < 0.0;
+          bool entering = dot(dir, norm_at(obj, stack[sp].p)) < 0.0;
           float eta = entering ? 1.0 / mtl.ior : mtl.ior;
           float k = 1.0 - pow(eta, 2.0) * (1.0 - dot(n, dir) * dot(n, dir));
 
@@ -452,7 +455,7 @@ void main() {
         break;
       }
       case 6: {
-        Material mtl = stack[sp].obj.mtl;
+        Material mtl = scene.objects[stack[sp].obj_id].mtl;
         vec3 s = mtl.shininess;
         vec3 t = mtl.transparency;
         stack[sp].intensity =
@@ -466,7 +469,7 @@ void main() {
       }
     }
 
-    if (stack[0].obj.type != NONE) {
+    if (stack[0].obj_id != -1) {
       c.rgb += stack[0].intensity / float(scene.aa);
       c.a = 1.0;
     }
