@@ -76,7 +76,7 @@ class Triangle {
     public st0: vec2,
     public st1: vec2,
     public st2: vec2,
-    public material: Material
+    public mtl: Material
   ) {
     const n = cross(sub(p1, p0), sub(p2, p0));
     if (!norm(n0) || !norm(n1) || !norm(n2)) {
@@ -90,7 +90,7 @@ class Triangle {
 }
 
 class Sphere {
-  constructor(public c: vec3, public r: float, public material: Material) {}
+  constructor(public c: vec3, public r: float, public mtl: Material) {}
 }
 
 class Plane {
@@ -99,7 +99,7 @@ class Plane {
     public b: float,
     public c: float,
     public d: float,
-    public material: Material
+    public mtl: Material
   ) {}
 }
 
@@ -390,7 +390,7 @@ async function parseScene() {
 
 async function main() {
   const canvas = document.querySelector("canvas")!;
-  const r = 2;
+  const r = 1;
   canvas.width = window.innerWidth / r;
   canvas.height = window.innerHeight / r;
   canvas.style.height = window.innerHeight + "px";
@@ -449,16 +449,16 @@ async function main() {
 
   function loadMaterial(i: number, material: Material) {
     gl.uniform3fv(
-      loc(`scene.objects[${i}].material.color`),
+      loc(`scene.objects[${i}].mtl.color`),
       new Float32Array(material.color)
     );
-    gl.uniform1f(loc(`scene.objects[${i}].material.ior`), material.ior);
+    gl.uniform1f(loc(`scene.objects[${i}].mtl.ior`), material.ior);
     gl.uniform3fv(
-      loc(`scene.objects[${i}].material.shininess`),
+      loc(`scene.objects[${i}].mtl.shininess`),
       new Float32Array(material.shininess)
     );
     gl.uniform3fv(
-      loc(`scene.objects[${i}].material.transparency`),
+      loc(`scene.objects[${i}].mtl.transparency`),
       new Float32Array(material.transparency)
     );
     if (material.texture) {
@@ -477,10 +477,10 @@ async function main() {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.uniform1i(loc(`textures[${textureCount}]`), textureCount);
-      gl.uniform1i(loc(`scene.objects[${i}].material.texture`), textureCount);
+      gl.uniform1i(loc(`scene.objects[${i}].mtl.texture`), textureCount);
       ++textureCount;
     } else {
-      gl.uniform1i(loc(`scene.objects[${i}].material.texture`), -1);
+      gl.uniform1i(loc(`scene.objects[${i}].mtl.texture`), -1);
     }
   }
 
@@ -545,7 +545,7 @@ async function main() {
       gl.uniform1f(loc(`scene.objects[${i}].plane.c`), obj.c);
       gl.uniform1f(loc(`scene.objects[${i}].plane.d`), obj.d);
     }
-    loadMaterial(i, obj.material);
+    loadMaterial(i, obj.mtl);
   }
 
   gl.uniform2fv(

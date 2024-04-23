@@ -88,7 +88,7 @@ struct Object {
   Triangle triangle;
   Sphere sphere;
   Plane plane;
-  Material material;
+  Material mtl;
 };
 
 struct Scene {
@@ -120,83 +120,6 @@ vec4 sample_texture(int index, vec2 st) {
   }
 }
 
-float intersect(Triangle obj, vec3 o, vec3 dir) {
-  vec3 n = cross(obj.p1 - obj.p0, obj.p2 - obj.p0);
-  float t = dot(obj.p0 - o, n) / dot(dir, n);
-  if (t < 0.0)
-    return 0.0;
-
-  vec3 p = o + t * dir;
-  float b1 = dot(p - obj.p0, obj.e1);
-  float b2 = dot(p - obj.p0, obj.e2);
-  float b0 = 1.0 - b1 - b2;
-  if (b0 < 0.0 || b1 < 0.0 || b2 < 0.0)
-    return 0.0;
-
-  return t;
-}
-
-vec3 norm_at(Triangle obj, vec3 p) {
-  float b1 = dot(p - obj.p0, obj.e1);
-  float b2 = dot(p - obj.p0, obj.e2);
-  float b0 = 1.0 - b1 - b2;
-  return normalize(b0 * obj.n0 + b1 * obj.n1 + b2 * obj.n2);
-}
-
-vec3 color_at(Triangle obj, vec3 p, Material mtl) {
-  if (mtl.texture != -1) {
-    float b1 = dot(p - obj.p0, obj.e1);
-    float b2 = dot(p - obj.p0, obj.e2);
-    float b0 = 1.0 - b1 - b2;
-    vec2 st = b0 * obj.st0 + b1 * obj.st1 + b2 * obj.st2;
-    return sample_texture(mtl.texture, st).rgb;
-  }
-  return mtl.color;
-}
-
-float intersect(Sphere obj, vec3 o, vec3 dir) {
-  bool inside = length(obj.c - o) < obj.r;
-  float t_center = dot(obj.c - o, dir);
-  if (!inside && t_center < 0.0)
-    return 0.0;
-
-  float d = length(o + (t_center * dir) - obj.c);
-  if (!inside && obj.r < d)
-    return 0.0;
-
-  float t_offset = sqrt(obj.r * obj.r - d * d);
-  return inside ? t_center + t_offset : t_center - t_offset;
-}
-
-vec3 norm_at(Sphere obj, vec3 p) { return normalize(p - obj.c); }
-
-vec3 color_at(Sphere obj, vec3 p, Material mtl) {
-  if (mtl.texture != -1) {
-    float dx = p.x - obj.c.x;
-    float dy = p.y - obj.c.y;
-    float dz = p.z - obj.c.z;
-    float s = (atan(-dz, dx) + M_PI) / (2.0 * M_PI);
-    float t = atan(sqrt(dx * dx + dz * dz), dy) / M_PI;
-    if (s > 1.0)
-      s -= 1.0;
-    return sample_texture(mtl.texture, vec2(s, t)).rgb;
-  }
-  return mtl.color;
-}
-
-float intersect(Plane obj, vec3 o, vec3 dir) {
-  vec3 p = obj.a != 0.0   ? vec3(-obj.d / obj.a, 0.0, 0.0)
-           : obj.b != 0.0 ? vec3(0.0, -obj.d / obj.b, 0.0)
-                          : vec3(0.0, 0.0, -obj.d / obj.c);
-  vec3 n = vec3(obj.a, obj.b, obj.c);
-  float t = dot(p - o, n) / dot(dir, n);
-  return max(t, 0.0);
-}
-
-vec3 norm_at(Plane obj, vec3 p) { return normalize(vec3(obj.a, obj.b, obj.c)); }
-
-vec3 color_at(Plane obj, vec3 p, Material mtl) { return mtl.color; }
-
 float intersect(Object obj, vec3 o, vec3 dir) {
   /**
    * Advance the ray by a small offset to compensate for numerical errors.
@@ -206,76 +129,121 @@ float intersect(Object obj, vec3 o, vec3 dir) {
    */
   o += 1e-3 * dir;
   switch (obj.type) {
-  case TRIANGLE:
-    return intersect(obj.triangle, o, dir);
-  case SPHERE:
-    return intersect(obj.sphere, o, dir);
-  case PLANE:
-    return intersect(obj.plane, o, dir);
+  case TRIANGLE: {
+    Triangle tri = obj.triangle;
+    vec3 n = cross(tri.p1 - tri.p0, tri.p2 - tri.p0);
+    float t = dot(tri.p0 - o, n) / dot(dir, n);
+    if (t < 0.0)
+      return 0.0;
+    vec3 p = o + t * dir;
+    float b1 = dot(p - tri.p0, tri.e1);
+    float b2 = dot(p - tri.p0, tri.e2);
+    float b0 = 1.0 - b1 - b2;
+    if (b0 < 0.0 || b1 < 0.0 || b2 < 0.0)
+      return 0.0;
+    return t;
+  }
+  case SPHERE: {
+    Sphere s = obj.sphere;
+    bool inside = length(s.c - o) < s.r;
+    float t_center = dot(s.c - o, dir);
+    if (!inside && t_center < 0.0)
+      return 0.0;
+    float d = length(o + (t_center * dir) - s.c);
+    if (!inside && s.r < d)
+      return 0.0;
+    float t_offset = sqrt(s.r * s.r - d * d);
+    return inside ? t_center + t_offset : t_center - t_offset;
+  }
+  case PLANE: {
+    float a = obj.plane.a, b = obj.plane.b, c = obj.plane.c, d = obj.plane.d;
+    vec3 p = a != 0.0   ? vec3(-d / a, 0.0, 0.0)
+             : b != 0.0 ? vec3(0.0, -d / b, 0.0)
+                        : vec3(0.0, 0.0, -d / c);
+    vec3 n = vec3(a, b, c);
+    float t = dot(p - o, n) / dot(dir, n);
+    return max(t, 0.0);
+  }
   }
 }
 
 vec3 norm_at(Object obj, vec3 p) {
   switch (obj.type) {
-  case TRIANGLE:
-    return norm_at(obj.triangle, p);
-  case SPHERE:
-    return norm_at(obj.sphere, p);
-  case PLANE:
-    return norm_at(obj.plane, p);
+  case TRIANGLE: {
+    Triangle t = obj.triangle;
+    float b1 = dot(p - t.p0, t.e1);
+    float b2 = dot(p - t.p0, t.e2);
+    float b0 = 1.0 - b1 - b2;
+    return normalize(b0 * t.n0 + b1 * t.n1 + b2 * t.n2);
+  }
+  case SPHERE: {
+    return normalize(p - obj.sphere.c);
+  }
+  case PLANE: {
+    return normalize(vec3(obj.plane.a, obj.plane.b, obj.plane.c));
+  }
   }
 }
 
-vec3 color_at(Object obj, vec3 o) {
+vec3 color_at(Object obj, vec3 p) {
   switch (obj.type) {
-  case TRIANGLE:
-    return color_at(obj.triangle, o, obj.material);
-  case SPHERE:
-    return color_at(obj.sphere, o, obj.material);
-  case PLANE:
-    return color_at(obj.plane, o, obj.material);
+  case TRIANGLE: {
+    Triangle t = obj.triangle;
+    if (obj.mtl.texture != -1) {
+      float b1 = dot(p - t.p0, t.e1);
+      float b2 = dot(p - t.p0, t.e2);
+      float b0 = 1.0 - b1 - b2;
+      vec2 st = b0 * t.st0 + b1 * t.st1 + b2 * t.st2;
+      return sample_texture(obj.mtl.texture, st).rgb;
+    }
+    return obj.mtl.color;
   }
-}
-
-vec3 light_dir(DirectionalLight l, vec3 o) { return normalize(l.dir); }
-
-float light_dist(DirectionalLight l, vec3 o) { return FLT_MAX; }
-
-vec3 intensity(DirectionalLight l, vec3 o) { return l.color; }
-
-vec3 light_dir(PointLight l, vec3 o) { return normalize(l.pos - o); }
-
-float light_dist(PointLight l, vec3 o) { return length(l.pos - o); }
-
-vec3 intensity(PointLight l, vec3 o) {
-  float d = light_dist(l, o);
-  return l.color * min(100.0, 1.0 / (d * d));
+  case SPHERE: {
+    Sphere s = obj.sphere;
+    if (obj.mtl.texture != -1) {
+      float dx = p.x - s.c.x;
+      float dy = p.y - s.c.y;
+      float dz = p.z - s.c.z;
+      float s = (atan(-dz, dx) + M_PI) / (2.0 * M_PI);
+      float t = atan(sqrt(dx * dx + dz * dz), dy) / M_PI;
+      if (s > 1.0)
+        s -= 1.0;
+      return sample_texture(obj.mtl.texture, vec2(s, t)).rgb;
+    }
+    return obj.mtl.color;
+  }
+  case PLANE: {
+    return obj.mtl.color;
+  }
+  }
 }
 
 vec3 light_dir(Light l, vec3 o) {
   switch (l.type) {
   case DIRECTIONAL:
-    return light_dir(l.directional, o);
+    return normalize(l.directional.dir);
   case POINT:
-    return light_dir(l.point, o);
+    return normalize(l.point.pos - o);
   }
 }
 
 float light_dist(Light l, vec3 o) {
   switch (l.type) {
   case DIRECTIONAL:
-    return light_dist(l.directional, o);
+    return FLT_MAX;
   case POINT:
-    return light_dist(l.point, o);
+    return length(l.point.pos - o);
   }
 }
 
 vec3 intensity(Light l, vec3 o) {
   switch (l.type) {
   case DIRECTIONAL:
-    return intensity(l.directional, o);
-  case POINT:
-    return intensity(l.point, o);
+    return l.directional.color;
+  case POINT: {
+    float d = light_dist(l, o);
+    return l.point.color * min(100.0, 1.0 / (d * d));
+  }
   }
 }
 
@@ -291,19 +259,12 @@ struct RayTraceArgs {
   int d, bounces;
 };
 
-struct RayTraceRet {
-  Object obj;
-  vec3 p, intensity;
-};
-
 struct StackFrame {
   RayTraceArgs args;
-  RayTraceRet ret;
-  vec3 n;
-  vec3 diffuse, refraction, reflection;
-  RayTraceArgs next_args;
-  RayTraceRet next_ret;
   int cont;
+  Object obj;
+  vec3 p, n;
+  vec3 diffuse, refraction, reflection, intensity;
 };
 
 Object advance_ray(vec3 o, vec3 dir) {
@@ -334,113 +295,9 @@ vec3 illuminate(Light light, Object obj, vec3 p, vec3 n) {
   return color;
 }
 
-void ray_trace_0(inout StackFrame sf, inout int next) {
-  vec3 o = sf.args.o;
-  vec3 dir = sf.args.dir;
-
-  Object obj_hit = advance_ray(o, dir);
-  sf.ret.obj = obj_hit;
-
-  if (obj_hit.type == NONE) {
-    sf.ret.intensity = vec3(0.0);
-    sf.cont = -1;
-    return;
-  }
-
-  float t_hit = intersect(obj_hit, o, dir);
-  sf.ret.p = o + t_hit * dir;
-  sf.n = norm_at(obj_hit, sf.ret.p);
-
-  /* use the other side */
-  if (dot(sf.n, dir) > 0.0) {
-    sf.n = -sf.n;
-  }
-
-  for (int i = 0; i < num_lights; ++i) {
-    sf.diffuse += illuminate(scene.lights[i], sf.ret.obj, sf.ret.p, sf.n);
-  }
-
-  if (sf.args.d > 0) {
-    /* shoot secondary rays */
-    vec3 random_dir = normalize(sf.n + sample_unit_sphere(next));
-    sf.next_args = RayTraceArgs(sf.ret.p, random_dir, max(sf.args.d - 1, 0),
-                                max(sf.args.bounces - 0, 0));
-    sf.cont = 11;
-    return;
-  }
-
-  sf.cont = 2;
-}
-
-void ray_trace_1(inout StackFrame sf, inout int next) {
-  if (sf.next_ret.obj.type != NONE) {
-    Light l = Light(POINT, DirectionalLight(vec3(0.0), vec3(0.0)),
-                    PointLight(sf.next_ret.p, sf.next_ret.intensity));
-    sf.diffuse += illuminate(l, sf.ret.obj, sf.ret.p, sf.n);
-  }
-  sf.cont = 2;
-}
-
-void ray_trace_2(inout StackFrame sf, inout int next) {
-  vec3 dir = sf.args.dir, n = sf.n;
-  if (sf.args.bounces > 0) {
-    /* reflection */
-    vec3 r = normalize(dir - 2.0 * dot(dir, n) * n);
-    sf.next_args = RayTraceArgs(sf.ret.p, r, max(sf.args.d - 1, 0),
-                                max(sf.args.bounces - 1, 0));
-    sf.cont = 13;
-    return;
-  }
-  sf.cont = 4;
-}
-
-void ray_trace_3(inout StackFrame sf, inout int next) {
-  sf.reflection = sf.next_ret.intensity;
-  sf.cont = 4;
-}
-
-void ray_trace_4(inout StackFrame sf, inout int next) {
-  vec3 dir = sf.args.dir, n = sf.n;
-
-  if (sf.args.bounces > 0) {
-    Material mtl = sf.ret.obj.material;
-
-    /* refraction */
-    bool entering = dot(dir, norm_at(sf.ret.obj, sf.ret.p)) < 0.0;
-    float eta = entering ? 1.0 / mtl.ior : mtl.ior;
-    float k = 1.0 - pow(eta, 2.0) * (1.0 - dot(n, dir) * dot(n, dir));
-
-    if (k < 0.0) {
-      sf.refraction = sf.reflection;
-    } else {
-      vec3 r = normalize(eta * dir - (eta * dot(n, dir) + sqrt(k)) * n);
-      sf.next_args = RayTraceArgs(sf.ret.p + 0.01 * r, r, max(sf.args.d - 1, 0),
-                                  max(sf.args.bounces - 1, 0));
-      sf.cont = 15;
-      return;
-    }
-  }
-  sf.cont = 6;
-}
-
-void ray_trace_5(inout StackFrame sf, inout int next) {
-  sf.refraction = sf.next_ret.intensity;
-  sf.cont = 6;
-}
-
-void ray_trace_6(inout StackFrame sf, inout int next) {
-  Material mtl = sf.ret.obj.material;
-  vec3 s = mtl.shininess;
-  vec3 t = mtl.transparency;
-  sf.ret.intensity =
-      (s * sf.reflection + (vec3(1.0, 1.0, 1.0) - s) * t * sf.refraction +
-       (vec3(1.0, 1.0, 1.0) - s) * (vec3(1.0, 1.0, 1.0) - t) * sf.diffuse);
-  sf.cont = -1;
-}
-
 out vec4 fragColor;
 
-#define STACK_MAX_N 10
+#define STACK_MAX_N 4
 
 void main() {
   StackFrame stack[STACK_MAX_N];
@@ -483,67 +340,134 @@ void main() {
     stack[0].cont = 0;
     stack[0].args = RayTraceArgs(origin, dir, scene.d, scene.bounces);
 
-#define INIT_STACK_FRAME                                                       \
-  stack[sp].diffuse = vec3(0.0);                                               \
-  stack[sp].reflection = vec3(0.0);                                            \
-  stack[sp].refraction = vec3(0.0);
-
-#define RECURSIVE_CALL                                                         \
-  stack[sp + 1].args = stack[sp].next_args;                                    \
-  ++sp;                                                                        \
-  stack[sp].cont = 0;
-
-#define RETURN_FROM_CALL                                                       \
-  stack[sp - 1].next_ret = stack[sp].ret;                                      \
-  --sp;
-
-    while (true) {
-      if (stack[sp].cont == -1) {
-        if (sp == 0)
-          break;
-        RETURN_FROM_CALL
-        continue;
-      }
+    while (sp > -1) {
       switch (stack[sp].cont) {
-      case 0:
-        INIT_STACK_FRAME
-        ray_trace_0(stack[sp], next);
+      case 0: {
+        stack[sp].diffuse = vec3(0.0);
+        stack[sp].reflection = vec3(0.0);
+        stack[sp].refraction = vec3(0.0);
+
+        vec3 o = stack[sp].args.o;
+        vec3 dir = stack[sp].args.dir;
+
+        Object obj_hit = advance_ray(o, dir);
+        stack[sp].obj = obj_hit;
+
+        if (obj_hit.type == NONE) {
+          stack[sp].intensity = vec3(0.0);
+          --sp;
+          break;
+        }
+
+        float t_hit = intersect(obj_hit, o, dir);
+        stack[sp].p = o + t_hit * dir;
+        stack[sp].n = norm_at(obj_hit, stack[sp].p);
+
+        /* use the other side */
+        if (dot(stack[sp].n, dir) > 0.0) {
+          stack[sp].n = -stack[sp].n;
+        }
+
+        for (int i = 0; i < num_lights; ++i) {
+          stack[sp].diffuse += illuminate(scene.lights[i], stack[sp].obj,
+                                          stack[sp].p, stack[sp].n);
+        }
+
+        if (stack[sp].args.d > 0) {
+          /* shoot secondary rays */
+          vec3 random_dir = normalize(stack[sp].n + sample_unit_sphere(next));
+          stack[sp].cont = 1;
+          stack[sp + 1].args = RayTraceArgs(stack[sp].p, random_dir,
+                                            max(stack[sp].args.d - 1, 0),
+                                            max(stack[sp].args.bounces - 0, 0));
+          ++sp;
+          stack[sp].cont = 0;
+          break;
+        }
+
+        stack[sp].cont = 2;
         break;
-      case 1:
-        ray_trace_1(stack[sp], next);
+      }
+      case 1: {
+        if (stack[sp + 1].obj.type != NONE) {
+          Light l = Light(POINT, DirectionalLight(vec3(0.0), vec3(0.0)),
+                          PointLight(stack[sp + 1].p, stack[sp + 1].intensity));
+          stack[sp].diffuse +=
+              illuminate(l, stack[sp].obj, stack[sp].p, stack[sp].n);
+        }
+        stack[sp].cont = 2;
         break;
-      case 2:
-        ray_trace_2(stack[sp], next);
+      }
+      case 2: {
+        vec3 dir = stack[sp].args.dir, n = stack[sp].n;
+        if (stack[sp].args.bounces > 0) {
+          /* reflection */
+          vec3 r = normalize(dir - 2.0 * dot(dir, n) * n);
+          stack[sp].cont = 3;
+          stack[sp + 1].args =
+              RayTraceArgs(stack[sp].p, r, max(stack[sp].args.d - 1, 0),
+                           max(stack[sp].args.bounces - 1, 0));
+          ++sp;
+          stack[sp].cont = 0;
+          break;
+        }
+        stack[sp].cont = 4;
         break;
-      case 3:
-        ray_trace_3(stack[sp], next);
+      }
+      case 3: {
+        stack[sp].reflection = stack[sp + 1].intensity;
+        stack[sp].cont = 4;
         break;
-      case 4:
-        ray_trace_4(stack[sp], next);
+      }
+      case 4: {
+        vec3 dir = stack[sp].args.dir, n = stack[sp].n;
+
+        if (stack[sp].args.bounces > 0) {
+          Material mtl = stack[sp].obj.mtl;
+
+          /* refraction */
+          bool entering = dot(dir, norm_at(stack[sp].obj, stack[sp].p)) < 0.0;
+          float eta = entering ? 1.0 / mtl.ior : mtl.ior;
+          float k = 1.0 - pow(eta, 2.0) * (1.0 - dot(n, dir) * dot(n, dir));
+
+          if (k < 0.0) {
+            stack[sp].refraction = stack[sp].reflection;
+          } else {
+            vec3 r = normalize(eta * dir - (eta * dot(n, dir) + sqrt(k)) * n);
+            stack[sp].cont = 5;
+            stack[sp + 1].args = RayTraceArgs(
+                stack[sp].p + 0.01 * r, r, max(stack[sp].args.d - 1, 0),
+                max(stack[sp].args.bounces - 1, 0));
+            ++sp;
+            stack[sp].cont = 0;
+            break;
+          }
+        }
+        stack[sp].cont = 6;
         break;
-      case 5:
-        ray_trace_5(stack[sp], next);
+      }
+      case 5: {
+        stack[sp].refraction = stack[sp + 1].intensity;
+        stack[sp].cont = 6;
         break;
-      case 6:
-        ray_trace_6(stack[sp], next);
+      }
+      case 6: {
+        Material mtl = stack[sp].obj.mtl;
+        vec3 s = mtl.shininess;
+        vec3 t = mtl.transparency;
+        stack[sp].intensity =
+            (s * stack[sp].reflection +
+             (vec3(1.0, 1.0, 1.0) - s) * t * stack[sp].refraction +
+             (vec3(1.0, 1.0, 1.0) - s) * (vec3(1.0, 1.0, 1.0) - t) *
+                 stack[sp].diffuse);
+        --sp;
         break;
-      case 11:
-        stack[sp].cont = 1;
-        RECURSIVE_CALL
-        break;
-      case 13:
-        stack[sp].cont = 3;
-        RECURSIVE_CALL
-        break;
-      case 15:
-        stack[sp].cont = 5;
-        RECURSIVE_CALL
-        break;
+      }
       }
     }
 
-    if (stack[0].ret.obj.type != NONE) {
-      c.rgb += stack[0].ret.intensity / float(scene.aa);
+    if (stack[0].obj.type != NONE) {
+      c.rgb += stack[0].intensity / float(scene.aa);
       c.a = 1.0;
     }
   }
