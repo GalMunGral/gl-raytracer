@@ -203,7 +203,7 @@ async function parseScene() {
     objects: [],
     aa: 1,
     d: 0,
-    bounces: 3,
+    bounces: 2,
     expose: 0,
     focus: 0,
     lens: 0,
@@ -390,9 +390,9 @@ async function parseScene() {
 
 async function main() {
   const canvas = document.querySelector("canvas")!;
-  const r = 1;
-  canvas.width = window.innerWidth / r;
-  canvas.height = window.innerHeight / r;
+  const r = devicePixelRatio;
+  canvas.width = window.innerWidth * r;
+  canvas.height = window.innerHeight * r;
   canvas.style.height = window.innerHeight + "px";
   const gl = canvas.getContext("webgl2", { antialias: true })!;
   const program = await createProgramFromScripts(gl);
